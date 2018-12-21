@@ -68,7 +68,7 @@ class Generator(nn.Module):
         layer3.append(nn.BatchNorm2d(int(curr_dim / 2)))
         layer3.append(nn.ReLU())
 
-        if self.imsize == 64:
+        if self.imsize >= 64:
             layer4 = []
             curr_dim = int(curr_dim / 2)
             layer4.append(SpectralNorm(nn.ConvTranspose2d(curr_dim, int(curr_dim / 2), 4, 2, 1)))
@@ -76,6 +76,14 @@ class Generator(nn.Module):
             layer4.append(nn.ReLU())
             self.l4 = nn.Sequential(*layer4)
             curr_dim = int(curr_dim / 2)
+            if self.imsize == 128:
+                layer5 = []
+                curr_dim = int(curr_dim / 2)
+                layer5.append(SpectralNorm(nn.ConvTranspose2d(curr_dim, int(curr_dim / 2), 4, 2, 1)))
+                layer5.append(nn.BatchNorm2d(int(curr_dim / 2)))
+                layer5.append(nn.ReLU())
+                self.l5 = nn.Sequential(*layer5)
+                curr_dim = int(curr_dim / 2)
 
         self.l1 = nn.Sequential(*layer1)
         self.l2 = nn.Sequential(*layer2)
@@ -89,14 +97,27 @@ class Generator(nn.Module):
         self.attn2 = Self_Attn( 64,  'relu')
 
     def forward(self, z):
-        z = z.view(z.size(0), z.size(1), 1, 1)
-        out=self.l1(z)
-        out=self.l2(out)
-        out=self.l3(out)
-        out,p1 = self.attn1(out)
-        out=self.l4(out)
-        out,p2 = self.attn2(out)
-        out=self.last(out)
+        if self.imsize == 128:
+            z = z.view(z.size(0), z.size(1), 1, 1)
+            out=self.l1(z)
+            out=self.l2(out)
+            out=self.l3(out)
+            out=self.l4(out)
+            out,p1 = self.attn1(out)
+            out=self.l5(out)
+            out,p2 = self.attn2(out)
+            out=self.last(out)
+        else:
+            z = z.view(z.size(0), z.size(1), 1, 1)
+            out=self.l1(z)
+            out=self.l2(out)
+            out=self.l3(out)
+            out,p1 = self.attn1(out)
+            out=self.l4(out)
+            out,p2 = self.attn2(out)
+            out=self.last(out)
+        
+        
 
         return out, p1, p2
 
@@ -125,12 +146,20 @@ class Discriminator(nn.Module):
         layer3.append(nn.LeakyReLU(0.1))
         curr_dim = curr_dim * 2
 
-        if self.imsize == 64:
+        if self.imsize >= 64:
             layer4 = []
             layer4.append(SpectralNorm(nn.Conv2d(curr_dim, curr_dim * 2, 4, 2, 1)))
             layer4.append(nn.LeakyReLU(0.1))
             self.l4 = nn.Sequential(*layer4)
             curr_dim = curr_dim*2
+            if self.imsize == 128:
+                layer5 = []
+                layer5.append(SpectralNorm(nn.Conv2d(curr_dim, curr_dim * 2, 4, 2, 1)))
+                layer5.append(nn.LeakyReLU(0.1))
+                self.l5 = nn.Sequential(*layer5)
+                curr_dim = curr_dim*2
+        
+        
         self.l1 = nn.Sequential(*layer1)
         self.l2 = nn.Sequential(*layer2)
         self.l3 = nn.Sequential(*layer3)
@@ -142,12 +171,23 @@ class Discriminator(nn.Module):
         self.attn2 = Self_Attn(512, 'relu')
 
     def forward(self, x):
-        out = self.l1(x)
-        out = self.l2(out)
-        out = self.l3(out)
-        out,p1 = self.attn1(out)
-        out=self.l4(out)
-        out,p2 = self.attn2(out)
-        out=self.last(out)
+        if self.imsize == 128:
+            out = self.l1(x)
+            out = self.l2(out)
+            out = self.l3(out)
+            out = self.l4(out)
+            out,p1 = self.attn1(out)
+            out=self.l5(out)
+            out,p2 = self.attn2(out)
+            out=self.last(out)
+        else:
+        
+            out = self.l1(x)
+            out = self.l2(out)
+            out = self.l3(out)
+            out,p1 = self.attn1(out)
+            out=self.l4(out)
+            out,p2 = self.attn2(out)
+            out=self.last(out)
 
         return out.squeeze(), p1, p2
